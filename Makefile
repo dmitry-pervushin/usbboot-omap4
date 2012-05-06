@@ -42,6 +42,7 @@ TARGET_CFLAGS := -g -Os  -Wall
 TARGET_CFLAGS +=  -march=armv7-a -fno-builtin -ffreestanding
 TARGET_CFLAGS += -I. -Iinclude
 TARGET_CFLAGS += -include config_$(BOARD).h
+TARGET_CFLAGS += -Wa,-march=armv7-a+sec 
 
 TARGET_LIBGCC := $(shell $(TARGET_CC) $(TARGET_CFLAGS) -print-libgcc-file-name)
 
@@ -56,18 +57,23 @@ ALL :=
 
 include build/rules.mk
 
+HOST_CFLAGS += $(shell pkg-config --cflags libusb-1.0) -Iinclude -L/usr/local/lib
 M_NAME := usbboot
 M_OBJS := tools/usbboot.o
-M_OBJS += tools/usb_linux.o
+# M_OBJS += tools/usb_linux.o
+M_OBJS += tools/usb-linux.o
 M_OBJS += 2ndstage.o
+M_LIBS := $(shell pkg-config --libs libusb-1.0)
 include build/host-executable.mk
 
 M_NAME := mkheader
 M_OBJS := tools/mkheader.o
+M_LIBS := 
 include build/host-executable.mk
 
 M_NAME := bin2c
 M_OBJS := tools/bin2c.o
+M_LIBS := 
 include build/host-executable.mk
 
 M_NAME := aboot

@@ -29,36 +29,24 @@
 #include <aboot/aboot.h>
 #include <aboot/bootimg.h>
 
-int boot_image(unsigned machtype, unsigned image, unsigned len)
+static void boot_image_android(unsigned machtype, unsigned image, unsigned len)
 {
 	void (*entry)(unsigned, unsigned, unsigned);
 	struct boot_img_hdr *hdr = (void*) image;
 	unsigned psize, pmask, kactual;
 	unsigned *tag = (void*) CONFIG_ADDR_ATAGS;
-	unsigned n;
-	char *x = (void*) image;
-
-	for (n = 0; n < 8; n++)
-		if (x[n] != "ANDROID!"[n]) break;
-
-	if (n != 8) {
-		printf("jumping to 0x%x...\n", CONFIG_ADDR_DOWNLOAD);
-		entry = CONFIG_ADDR_DOWNLOAD;
-		entry(0, cfg_machine_type, CONFIG_ADDR_ATAGS);
-		for (;;);
-	}
 
 	if (len < sizeof(*hdr))
-		return -1;
+		return;
 
 	psize = hdr->page_size;
 	pmask = hdr->page_size - 1;
 
 	if ((psize != 1024) && (psize != 2048) && (psize != 4096))
-		return -1;
+		return;
 
 	if (len < psize)
-		return -1;
+		return;
 
 	kactual = (hdr->kernel_size + pmask) & (~pmask);
 
@@ -106,6 +94,43 @@ int boot_image(unsigned machtype, unsigned image, unsigned len)
 
 	serial_puts("\nreturned from kernel?\n");
 	for (;;) ;
+}
 
-	return 0;
+static void __attribute__((noreturn)) boot_image_binary(unsigned machtype, unsigned image, unsigned len)
+{
+	void (*entry)(unsigned, unsigned, unsigned);
+
+	printf("jumping to 0x%x...\n", image);
+	entry = (void*)image;
+	entry(0, cfg_machine_type, CONFIG_ADDR_ATAGS);
+	for (;;);
+}
+
+static void boot_image_u(unsigned machtype, unsigned image, unsigned len)
+{
+	char *data = (char*)image;
+
+
+}
+
+void boot_image(unsigned machtype, unsigned image, unsigned len)
+{
+	unsigned n;
+	char *x = (void*) image;
+
+	/* is it android image ? */
+	for (n = 0; n < 8; n++)
+		if (x[n] != "ANDROID!"[n]) 
+			break;
+	if (n == 8)
+		return boot_image_android(machtype, image, len);
+
+	/* may be, is it uImage ? */
+	
+	/* .... */
+
+	/* no, plain binary */
+	boot_image_binary(machtype, image, len);
+
+	return /* :) */;
 }
