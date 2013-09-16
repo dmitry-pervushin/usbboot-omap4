@@ -219,7 +219,7 @@ int load_from_usb(unsigned *_len, unsigned *_addr)
 			}
 			if (len < 1024)
 				break;
-			printf(".");
+			//printf(".");
 			len -= 1024;
 			addr += 1024;
 		}

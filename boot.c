@@ -130,7 +130,7 @@ void boot_image(unsigned machtype, unsigned image, unsigned len)
 	/* .... */
 
 	/* no, plain binary */
-	boot_image_binary(machtype, image, len);
+	boot_image_binary(machtype, image+0x1000, len);
 
 	return /* :) */;
 }
