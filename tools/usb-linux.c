@@ -10,7 +10,7 @@ int linux_usb_init(void)
 	r = libusb_init(&ctx);
 	if (r != 0)
 		return r;
-	libusb_set_debug(ctx,0xFF);
+	libusb_set_debug(ctx,0x1);
 }
 
 void linux_usb_fini(void)
