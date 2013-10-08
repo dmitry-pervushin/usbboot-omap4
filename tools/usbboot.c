@@ -9,7 +9,7 @@
  *    notice, this list of conditions and the following disclaimer.
  *  * Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the 
+ *    the documentation and/or other materials provided with the
  *    distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -19,7 +19,7 @@
  * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
  * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED 
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
  * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <fcntl.h>
 #include <string.h>
 
@@ -40,7 +41,7 @@
 
 #define min(a,b) (((a) < (b)) ? (a): (b))
 
-static int print_error(int r) 
+static int print_error(int r)
 {
 	fprintf(stderr, "failed: %s\n", strerror(r));
 	return r;
@@ -137,8 +138,8 @@ int usb_boot(usb_handle usb, struct usb_load_chunk *chunks)
 		sleep(1);
 	}
 
-	fprintf(stderr, "\nstarting chunk at %p\n", chunks[i].address);
-	msg = ABOOT_NO_MORE_DATA; 
+	fprintf(stderr, "\nstarting chunk at 0x%"PRIx32"\n", chunks[1].address);
+	msg = ABOOT_NO_MORE_DATA;
 	r = linux_usb_write(usb, &msg, sizeof(msg));
 	CHECK_ERROR(r);
 	
@@ -153,7 +154,7 @@ void *load_file(const char *file, unsigned *sz)
 	int fd;
 	
 	fd = open(file, O_RDONLY);
-	if (fd < 0) 
+	if (fd < 0)
 		goto fail;
 
 	if (fstat(fd, &s))
@@ -269,5 +270,5 @@ int main(int argc, char **argv)
 
 	linux_usb_fini();
 
-	return r;    
+	return r;
 }
