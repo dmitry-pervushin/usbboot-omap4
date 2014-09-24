@@ -97,6 +97,9 @@ int usb_boot(usb_handle usb, struct usb_load_chunk *chunks)
 	r = linux_usb_write(usb, chunks[0].data, chunks[0].size);
 	CHECK_ERROR(r);
 
+        // sleep to make stuff work
+        sleep(2);
+
 	msg = 0;
 	fprintf(stderr,"waiting for 2ndstage response...\n");
 	r = linux_usb_read(usb, &msg, sizeof(msg));
