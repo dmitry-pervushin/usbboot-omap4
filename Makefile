@@ -39,7 +39,7 @@ TARGET_OBJCOPY := $(TOOLCHAIN)objcopy
 TARGET_OBJDUMP := $(TOOLCHAIN)objdump
 
 TARGET_CFLAGS := -g -Os  -Wall
-TARGET_CFLAGS +=  -march=armv7-a -fno-builtin -ffreestanding
+TARGET_CFLAGS +=  -march=armv7-a -mcpu=cortex-a9 -fno-builtin -ffreestanding
 TARGET_CFLAGS += -I. -Iinclude
 TARGET_CFLAGS += -include config_$(BOARD).h
 
