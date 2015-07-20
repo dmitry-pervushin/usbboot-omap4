@@ -34,7 +34,7 @@
 
 #define WITH_MEMORY_TEST	0
 #define WITH_FLASH_BOOT		0
-#define WITH_SIGNATURE_CHECK	1
+#define WITH_SIGNATURE_CHECK	0
 
 #if WITH_MEMORY_TEST
 void memtest(void *x, unsigned count) {
@@ -167,7 +167,10 @@ int load_from_usb(unsigned *_len)
 
 void aboot(unsigned *info)
 {
-	unsigned bootdevice, n, len;
+#if WITH_FLASH_BOOT
+	unsigned bootdevice;
+#endif
+    unsigned n, len;
 
 	board_mux_init();
 	sdelay(100);

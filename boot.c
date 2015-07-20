@@ -42,8 +42,8 @@ int boot_image(unsigned machtype, unsigned image, unsigned len)
 		if (x[n] != "ANDROID!"[n]) break;
 
 	if (n != 8) {
-		printf("jumping to 0x%x...\n", CONFIG_ADDR_DOWNLOAD);
-		entry = CONFIG_ADDR_DOWNLOAD;
+		entry = (void *)CONFIG_ADDR_DOWNLOAD + 0x100;
+		printf("jumping to 0x%p...\n", entry);
 		entry(0, cfg_machine_type, CONFIG_ADDR_ATAGS);
 		for (;;);
 	}
@@ -90,7 +90,7 @@ int boot_image(unsigned machtype, unsigned image, unsigned len)
 	 * otherwise the ramdisk gets clobbered before it can be
 	 * uncompressed.
 	 */
-	memcpy((void*) CONFIG_ADDR_KERNEL, image + psize, kactual);
+	memcpy((void*) CONFIG_ADDR_KERNEL, (void *)image + psize, kactual);
 	entry = (void*) CONFIG_ADDR_KERNEL;
 
 	printf("kernel:   0x%x (%d bytes)\n",

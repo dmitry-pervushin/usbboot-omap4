@@ -38,14 +38,14 @@ TARGET_LD := $(TOOLCHAIN)ld
 TARGET_OBJCOPY := $(TOOLCHAIN)objcopy
 TARGET_OBJDUMP := $(TOOLCHAIN)objdump
 
-TARGET_CFLAGS := -g -Os  -Wall
+TARGET_CFLAGS := -g -Os  -Wall -Werror
 TARGET_CFLAGS +=  -march=armv7-a -mcpu=cortex-a9 -fno-builtin -ffreestanding
 TARGET_CFLAGS += -I. -Iinclude
 TARGET_CFLAGS += -include config_$(BOARD).h
 
 TARGET_LIBGCC := $(shell $(TARGET_CC) $(TARGET_CFLAGS) -print-libgcc-file-name)
 
-HOST_CFLAGS := -g -O2 -Wall
+HOST_CFLAGS := -g -O2 -Wall -Werror
 HOST_CFLAGS += -Itools
 
 OUT := out/$(BOARD)
