@@ -77,7 +77,7 @@ int usb_open(struct usb *usb)
 struct usb *local_read_usb;
 static void rom_read_callback(struct per_handle *rh)
 {
-
+	// printf("status = %d\n", rh->status);
 	local_read_usb->dread.status = rh->status;
 	return;
 }
@@ -146,14 +146,20 @@ int usb_read(struct usb *usb, void *data, unsigned len)
 	unsigned char *x = data;
 	int n;
 	while (len > 0) {
+		// printf("total len = %d\n", len);
 		xfer = (len > USB_MAX_IO) ? USB_MAX_IO : len;
+		// printf("submitting...\n");
 		usb_queue_read(usb, x, xfer);
+		// printf("waiting..\n");
 		n = usb_wait_read(usb);
+		// printf("%d read\n", n);
 		if (n)
 			return n;
 		x += xfer;
 		len -= xfer;
+		// printf("xxx, len = %d\n", len);
 	}
+	// printf("Xepe\n");
 	return 0;
 }
 

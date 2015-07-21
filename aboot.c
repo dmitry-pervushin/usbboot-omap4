@@ -31,10 +31,13 @@
 #include <omap4/mux.h>
 #include <omap4/hw.h>
 #include <omap4/omap4_rom.h>
+#include "protocol.h"
 
 #define WITH_MEMORY_TEST	0
 #define WITH_FLASH_BOOT		0
 #define WITH_SIGNATURE_CHECK	0
+
+#define min(a,b) ( ((a) < (b)) ? (a) : (b) )
 
 #if WITH_MEMORY_TEST
 void memtest(void *x, unsigned count) {
@@ -60,11 +63,51 @@ void memtest(void *x, unsigned count) {
 }
 #endif
 
-static unsigned MSG = 0xaabbccdd;
-
 struct usb usb;
 
 unsigned cfg_machine_type = 2791;
+
+#if 0
+static void dump(unsigned char *address, unsigned len, char *text)
+{
+	unsigned i, j, l;
+
+	printf("\n\n%s\n", text);
+
+	l = len % 16;
+	if (l)
+		l = len + 16 - l;
+	else
+		l = len;
+
+	for (i = 0; i < l; i += 16) {
+
+		printf("%08X: ", address + i);
+
+		for (j = i; j < i + 16; j ++ ) {
+			if (j < l)
+				printf("%02X ", address[j]);
+			else
+				printf("   ");
+			if (j == i + 8)
+				printf ("-");
+		}
+
+		printf(" | ");
+
+		for (j = i; j < i + 16; j ++ ) {
+			if (j < l)
+				printf("%c", address[j] >= 32 ? address[j] : '.');
+			else
+				printf(" ");
+			if (j == i + 8)
+				printf ("-");
+		}
+
+		printf("\n");
+	}
+}
+#endif
 
 #if WITH_SIGNATURE_CHECK
 unsigned call_trusted(unsigned appid, unsigned procid, unsigned flag, void *args);
@@ -141,27 +184,53 @@ int load_from_mmc(unsigned device, unsigned *len)
 }
 #endif
 
-int load_from_usb(unsigned *_len)
+int load_from_usb(unsigned *_len, unsigned *_addr)
 {
-	unsigned len, n;
-	enable_irqs();
+	u32 len, addr, msg;
 
-	if (usb_open(&usb))
-		return -1;
+//	enable_irqs();
 
-	usb_queue_read(&usb, &len, 4);
-	usb_write(&usb, &MSG, 4);
-	n = usb_wait_read(&usb);
-	if (n)
+	if (usb_open(&usb)) {
+		printf("failed to open usb\n");
 		return -1;
+	}
 
-	if (usb_read(&usb, (void*) CONFIG_ADDR_DOWNLOAD, len))
-		return -1;
+	msg = ABOOT_IS_READY;
+	usb_write(&usb, &msg, sizeof(msg));
+
+	for (;;) {
+		len = addr = 0x0;
+
+		printf("Ready\n");
+
+		usb_read(&usb, &len, 4);
+		if (len == ABOOT_NO_MORE_DATA) {
+			printf("OK, no more data\n");
+			break;
+		}
+		usb_read(&usb, &addr, 4);
+
+		printf("Reading %d bytes to %08X\n", len, addr);
+
+		*_addr = addr;
+		*_len = len;
+
+		for (;;) {
+			if (usb_read(&usb, (void*)addr, min(len, 1024))) {
+				printf("usb_read failed\n");
+				return -1;
+			}
+			if (len < 1024)
+				break;
+			//printf(".");
+			len -= 1024;
+			addr += 1024;
+		}
+		printf("\n");
+	}
 
 	usb_close(&usb);
-
-	disable_irqs();
-	*_len = len;
+//	disable_irqs();
 	return 0;
 }
 
@@ -170,7 +239,7 @@ void aboot(unsigned *info)
 #if WITH_FLASH_BOOT
 	unsigned bootdevice;
 #endif
-    unsigned n, len;
+    unsigned n, len, addr = CONFIG_ADDR_DOWNLOAD;
 
 	board_mux_init();
 	sdelay(100);
@@ -188,12 +257,15 @@ void aboot(unsigned *info)
 	printf("MSV=%08x\n",*((unsigned*) 0x4A00213C));
 
 #if WITH_MEMORY_TEST
+	printf("Memory test, pass 1");
 	memtest(0x82000000, 8*1024*1024);
+	printf("Memory test, pass 2");
 	memtest(0xA0208000, 8*1024*1024);
 #endif
 
+	printf("Memory test complete\n");
 #if !WITH_FLASH_BOOT
-	n = load_from_usb(&len);
+	n = load_from_usb(&len, &addr);
 #else
 	if (info) {
 		bootdevice = info[2] & 0xFF;
@@ -216,13 +288,13 @@ void aboot(unsigned *info)
 		for (;;) ;
 	}
 #endif
-
+	printf("load complete\n");
 	if (n) {
 		serial_puts("*** IO ERROR ***\n");
 	} else {
 #if WITH_SIGNATURE_CHECK
-		void *data = (void*) (CONFIG_ADDR_DOWNLOAD);
-		void *sign = (void*) (CONFIG_ADDR_DOWNLOAD + len - 280);
+		void *data = (void*) (addr);
+		void *sign = (void*) (addr + len - 280);
 		if ((len < 281) || (len > (32*1024*1024)))
 			goto fail_verify;
 		len -= 280;
@@ -234,7 +306,8 @@ void aboot(unsigned *info)
 			for (;;) ;
 		}
 #endif
-		boot_image(cfg_machine_type, CONFIG_ADDR_DOWNLOAD, len);
+		printf("starting!\n");
+		boot_image(cfg_machine_type, addr, len);
 		serial_puts("*** BOOT FAILED ***\n");
 	}
 

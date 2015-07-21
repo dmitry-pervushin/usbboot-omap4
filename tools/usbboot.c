@@ -9,7 +9,7 @@
  *    notice, this list of conditions and the following disclaimer.
  *  * Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the 
+ *    the documentation and/or other materials provided with the
  *    distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -19,7 +19,7 @@
  * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
  * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED 
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
  * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
@@ -31,39 +31,51 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <fcntl.h>
 #include <string.h>
 
-#include "usb.h"
+// #include "usb.h"
+#include "usb-linux.h"
+#include "protocol.h"
 
-typedef struct tocentry {
-	unsigned offset;
-	unsigned length;
-	unsigned flags;
-	unsigned align;
-	unsigned spare;
-	char name[12];
-} tocentry;
+#define min(a,b) (((a) < (b)) ? (a): (b))
 
-#define USE_TOC 0
+static int print_error(int r)
+{
+	fprintf(stderr, "failed: %s\n", strerror(r));
+	return r;
+}
 
-int usb_boot(usb_handle *usb,
-	     void *data, unsigned sz, 
-	     void *data2, unsigned sz2)
+#define CHECK_ERROR(r) do { if (r) { return print_error((r)); } } while(0)
+
+#define USBBOOT_MAX_CHUNKS 20
+
+struct usb_load_chunk {
+	uint32_t address;
+	void *data;
+	unsigned size;
+};
+
+int usb_boot(usb_handle usb, struct usb_load_chunk *chunks)
 {
 	uint32_t msg_boot = 0xF0030002;
 	uint32_t msg_getid = 0xF0030003;
-	uint32_t msg_size = sz;
+	uint32_t msg;
 	uint8_t id[81];
 	int i;
+	int r;
 
 #define OFF_CHIP	0x04
 #define OFF_ID		0x0F
 #define OFF_MPKH	0x26
 	memset(id, 0xee, 81);
 	fprintf(stderr,"reading ASIC ID\n");
-	usb_write(usb, &msg_getid, sizeof(msg_getid));
-	usb_read(usb, id, sizeof(id));
+	r = linux_usb_write(usb, &msg_getid, sizeof(msg_getid));
+	CHECK_ERROR(r);
+
+	r = linux_usb_read(usb, id, sizeof(id));
+	CHECK_ERROR(r);
 
 	fprintf(stderr,"CHIP: %02x%02x\n", id[OFF_CHIP+0], id[OFF_CHIP+1]);
 	fprintf(stderr,"IDEN: ");
@@ -78,34 +90,65 @@ int usb_boot(usb_handle *usb,
 		id[77], id[78], id[79], id[80]);
 
 	fprintf(stderr,"sending 2ndstage to target... %08x\n",msg_boot);
-	usb_write(usb, &msg_boot, sizeof(msg_boot));
-	usb_write(usb, &msg_size, sizeof(msg_size));
-	usb_write(usb, data, sz);
+	r = linux_usb_write(usb, &msg_boot, sizeof(msg_boot));
+	CHECK_ERROR(r);
+	r = linux_usb_write(usb, &chunks[0].size, sizeof(chunks[0].size));
+	CHECK_ERROR(r);
+	r = linux_usb_write(usb, chunks[0].data, chunks[0].size);
+	CHECK_ERROR(r);
 
-	if (data2) {
-		fprintf(stderr,"waiting for 2ndstage response...\n");
-		usb_read(usb, &msg_size, sizeof(msg_size));
-		if (msg_size != 0xaabbccdd) {
-			fprintf(stderr,"unexpected 2ndstage response\n");
-			return -1;
-		}
-		msg_size = sz2;
-		fprintf(stderr,"sending image to target...\n");
-		usb_write(usb, &msg_size, sizeof(msg_size));
-		usb_write(usb, data2, sz2);
+        // sleep to make stuff work
+        sleep(2);
+
+	msg = 0;
+	fprintf(stderr,"waiting for 2ndstage response...\n");
+	r = linux_usb_read(usb, &msg, sizeof(msg));
+	CHECK_ERROR(r);
+
+	fprintf(stderr, "response is %x\n", msg);
+	if (msg != ABOOT_IS_READY) {
+		fprintf(stderr,"unexpected 2ndstage response\n");
+		return -1;
 	}
+
+	sleep(1);
+
+	for (i = 1; chunks[i].address; i ++) {
+
+		if (i != 1)
+			printf("\n");
+
+		fprintf(stderr, "sending size = %d, ", chunks[i].size);
+		r = linux_usb_write(usb, &chunks[i].size, sizeof(chunks[i].size));
+		CHECK_ERROR(r);
+
+		fprintf(stderr, "sending address = 0x%08X, ", chunks[i].address);
+		r = linux_usb_write(usb, &chunks[i].address, sizeof(chunks[i].address));
+		CHECK_ERROR(r);
+
+		fprintf(stderr, "sending image ");
+		for (;;) {
+			r = linux_usb_write(usb, chunks[i].data, min(chunks[i].size, 1024));
+			CHECK_ERROR(r);
+			if (chunks[i].size < 1024)
+				break;
+			chunks[i].data += 1024;
+			chunks[i].size -= 1024;
+			usleep(1000);
+		}
+		CHECK_ERROR(r);
+
+		sleep(1);
+	}
+
+	fprintf(stderr, "\nstarting chunk at 0x%"PRIx32"\n", chunks[1].address);
+	msg = ABOOT_NO_MORE_DATA;
+	r = linux_usb_write(usb, &msg, sizeof(msg));
+	CHECK_ERROR(r);
 	
 	return 0;
 }
 
-int match_omap4_bootloader(usb_ifc_info *ifc)
-{
-	if (ifc->dev_vendor != 0x0451)
-		return -1;
-	if ((ifc->dev_product != 0xd010) && (ifc->dev_product != 0xd00f))
-		return -1;
-	return 0;
-}
 
 void *load_file(const char *file, unsigned *sz)
 {
@@ -115,8 +158,8 @@ void *load_file(const char *file, unsigned *sz)
 	
 	fd = open(file, O_RDONLY);
 	if (fd < 0)
-		return 0;
-	
+		goto fail;
+
 	if (fstat(fd, &s))
 		goto fail;
 	
@@ -134,7 +177,9 @@ void *load_file(const char *file, unsigned *sz)
 	return data;
 	
 fail:
-	close(fd);
+	fprintf(stderr, "Cannot read file '%s'\n", file);
+	if (fd >= 0)
+		close(fd);
 	return 0;
 }
 
@@ -143,46 +188,90 @@ extern unsigned aboot_size;
 
 int main(int argc, char **argv)
 {
-	void *data, *data2;
-	unsigned sz, sz2;
-	usb_handle *usb;
-	int once = 1;
+	usb_handle usb;
+	int once = 1, i;
+	int r;
+	struct usb_load_chunk chunks[USBBOOT_MAX_CHUNKS], *current;
+	char *p;
+	char *aboot_cmdline = "--aboot=";
+	int aboot_cmdline_sz = strlen(aboot_cmdline);
+
+	memset(chunks, 0, sizeof(chunks));
+
+	chunks[ 0 ].data = aboot_data;
+	chunks[ 0 ].size = aboot_size;
 
 	if (argc < 2) {
 		fprintf(stderr,"usage: usbboot [ <2ndstage> ] <image>\n");
 		return 0;
 	}
 
-	if (argc < 3) {
-		fprintf(stderr,"using built-in 2ndstage.bin\n");
-		data = aboot_data;
-		sz = aboot_size;
-	} else {
-		data = load_file(argv[1], &sz);
-		if (data == 0) {
-			fprintf(stderr,"cannot load '%s'\n", argv[1]);
-			return -1;
+	for (i = 1, current = chunks + 1;
+	     i < argc && current - chunks < USBBOOT_MAX_CHUNKS;
+	     i ++) {
+
+		/* check if argument is 2nd stage bootloader name */
+		if (strcmp(argv[i], "-a") == 0) {
+			chunks[0].data = load_file(argv[i + 1], &chunks[0].size);
+			i++;
+			if (chunks[0].data == NULL)
+				break;
+			continue;
 		}
-		argc--;
-		argv++;
+
+		if (strncmp(argv[i], aboot_cmdline, aboot_cmdline_sz) == 0) {
+			chunks[0].data = load_file(argv[i] + aboot_cmdline_sz, &chunks[0].size);
+			if (chunks[0].data == NULL)
+				break;
+			continue;
+		}
+			
+		p = strchr(argv[i], '=');
+		if (p == NULL)
+			p = strchr(argv[i], ':');
+		if (p == NULL) {
+			current->address = 0x82000000;
+			fprintf(stderr, "Warning: using %x for '%s'\n", current->address, argv[i]);
+			p = argv[i];
+		}
+		else {
+			*p = '\0';
+			current->address = strtoul(argv[i], NULL, 0);
+			p++;	/* skip the ':' or '=' */
+		}
+		current->data = load_file(p, &current->size);
+		if (current->data == NULL)
+			break;
+		current ++;
 	}
-	
-	data2 = load_file(argv[1], &sz2);
-	if (data2 == 0) {
-		fprintf(stderr,"cannot load '%s'\n", argv[1]);
-		return -1;
+
+	r = linux_usb_init();
+	CHECK_ERROR(r);
+
+	for (i = 0; i < USBBOOT_MAX_CHUNKS; i ++) {
+		if (i && !chunks[i].address)
+			break;
+		printf("Chunk %d:\n", i);
+		printf("\taddress = 0x%08X\n", chunks[i].address);
+		printf("\tdata    = %p\n", chunks[i].data);
+		printf("\tsize    = %d\n", chunks[i].size);
 	}
 
 	for (;;) {
-		usb = usb_open(match_omap4_bootloader);
-		if (usb)
-			return usb_boot(usb, data, sz, data2, sz2);
+		r = linux_usb_open(0x0451, 0xd010, &usb);
+		if (r == 0 && usb) {
+			r = usb_boot(usb, chunks);
+			linux_usb_close(usb);
+			break;
+		}
 		if (once) {
 			once = 0;
 			fprintf(stderr,"waiting for OMAP44xx device...\n");
 		}
 		usleep(250);
 	}
-	
-	return -1;    
+
+	linux_usb_fini();
+
+	return r;
 }
