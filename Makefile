@@ -30,6 +30,11 @@ what_to_build:: all
 -include local.mk
 
 TOOLCHAIN ?= arm-eabi-
+INSTALL ?= /usr/bin/install
+
+BINDIR ?= $(DESTDIR)/usr/bin
+DATADIR ?= $(DESTDIR)/usr/share/usbboot
+DOCDIR ?= $(DESTDIR)/usr/share/doc/usbboot
 
 BOARD ?= panda
 
@@ -54,6 +59,10 @@ OUT_TARGET_OBJ := $(OUT)/target-obj
 
 ALL :=
 
+BINARIES :=
+DATAFILES :=
+DOCS := README
+
 include build/rules.mk
 
 M_NAME := usbboot
@@ -61,6 +70,7 @@ M_OBJS := tools/usbboot.o
 M_OBJS += tools/usb_linux.o
 M_OBJS += 2ndstage.o
 include build/host-executable.mk
+BINARIES += $(OUT)/usbboot
 
 M_NAME := mkheader
 M_OBJS := tools/mkheader.o
@@ -90,6 +100,7 @@ M_OBJS += boot.o
 M_OBJS += misc.o
 M_LIBS := $(TARGET_LIBGCC)
 include build/target-executable.mk
+DATAFILES += $(OUT)/aboot $(OUT)/aboot.bin $(OUT)/aboot.ift
 
 M_NAME := agent
 M_BASE := 0x82000000
@@ -115,6 +126,13 @@ clean::
 	@rm -rf $(OUT)
 
 all:: $(ALL)
+
+install: $(BINARIES) $(DATAFILES) $(DOCS)
+	install -d $(BINDIR)
+	install -d $(DATADIR)
+	install -o root -g root -m 755 $(BINARIES) $(BINDIR)
+	install -o root -g root -m 644 $(DATAFILES) $(DATADIR)
+	install -o root -g root -m 644 $(DOCS) $(DOCDIR)
 
 # we generate .d as a side-effect of compiling. override generic rule:
 %.d:
