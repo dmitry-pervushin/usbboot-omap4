@@ -108,7 +108,7 @@ ALL += $(OUT)/aboot.ift
 $(OUT_HOST_OBJ)/2ndstage.o: $(OUT)/aboot.bin $(OUT)/bin2c
 	@echo generate $@
 	$(QUIET)./$(OUT)/bin2c aboot < $(OUT)/aboot.bin > $(OUT)/2ndstage.c
-	gcc -c -o $@ $(OUT)/2ndstage.c
+	$(CC) -c -o $@ $(OUT)/2ndstage.c
 
 clean::
 	@echo clean
