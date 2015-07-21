@@ -27,6 +27,8 @@
 
 what_to_build:: all
 
+QUIET=
+
 -include local.mk
 
 TOOLCHAIN ?= arm-none-eabi-
@@ -50,6 +52,12 @@ TARGET_CFLAGS += -include config_$(BOARD).h
 TARGET_CFLAGS += -Wa,-march=armv7-a+sec 
 
 TARGET_LIBGCC := $(shell $(TARGET_CC) $(TARGET_CFLAGS) -print-libgcc-file-name)
+
+ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
+    HOST_CC = $(CC)
+else
+    HOST_CC = $(DEB_HOST_GNU_TYPE)-gcc
+endif
 
 HOST_CFLAGS := -g -O2 -Wall -Werror
 HOST_CFLAGS += -Itools
@@ -125,7 +133,7 @@ ALL += $(OUT)/aboot.ift
 $(OUT_HOST_OBJ)/2ndstage.o: $(OUT)/aboot.bin $(OUT)/bin2c
 	@echo generate $@
 	$(QUIET)./$(OUT)/bin2c aboot < $(OUT)/aboot.bin > $(OUT)/2ndstage.c
-	$(CC) -c -o $@ $(OUT)/2ndstage.c
+	$(HOST_CC) -c -o $@ $(OUT)/2ndstage.c
 
 clean::
 	@echo clean

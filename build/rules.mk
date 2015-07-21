@@ -5,11 +5,11 @@ QUIET ?= @
 $(OUT_HOST_OBJ)/%.o: %.c
 	@$(MKDIR)
 	@echo compile $<
-	$(QUIET)$(CC) $(HOST_CFLAGS) -c $< -o $@ -MD -MT $@ -MF $(@:%o=%d)
+	$(QUIET)$(HOST_CC) $(HOST_CFLAGS) -c $< -o $@ -MD -MT $@ -MF $(@:%o=%d)
 $(OUT_HOST_OBJ)/%.o: %.S
 	@$(MKDIR)
 	@echo assemble $<
-	$(QUIET)$(CC) $(HOST_CFLAGS) -c $< -o $@ -MD -MT $@ -MF $(@:%o=%d)
+	$(QUIET)$(HOST_CC) $(HOST_CFLAGS) -c $< -o $@ -MD -MT $@ -MF $(@:%o=%d)
 
 $(OUT_TARGET_OBJ)/%.o: %.c
 	@$(MKDIR)
