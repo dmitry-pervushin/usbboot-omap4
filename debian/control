@@ -1,0 +1,12 @@
+Source: usbboot
+Section: devel
+Priority: optional
+Maintainer: David Cock <david.cock@inf.ethz.ch>
+Build-Depends: debhelper (>= 9), libusb-1.0-0-dev
+Standards-Version: 3.9.5
+Vcs-Git: https://github.com/davidcock/omap4boot.git
+
+Package: usbboot
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Utility to fastboot the Pandaboard(-ES) over USB.

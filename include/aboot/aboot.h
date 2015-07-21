@@ -46,6 +46,7 @@ int vsnprintf(char *str, size_t len, const char *fmt, va_list ap);
 
 int strlen(const char *s);
 void memset(void *p, unsigned char c, unsigned len);
+void *memcpy(void *_dst, const void *_src, unsigned count);
 
 void enable_irqs(void);
 void disable_irqs(void);

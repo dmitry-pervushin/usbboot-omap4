@@ -67,6 +67,7 @@ struct usb usb;
 
 unsigned cfg_machine_type = 2791;
 
+#if 0
 static void dump(unsigned char *address, unsigned len, char *text)
 {
 	unsigned i, j, l;
@@ -106,6 +107,8 @@ static void dump(unsigned char *address, unsigned len, char *text)
 		printf("\n");
 	}
 }
+#endif
+
 #if WITH_SIGNATURE_CHECK
 unsigned call_trusted(unsigned appid, unsigned procid, unsigned flag, void *args);
 
@@ -183,7 +186,7 @@ int load_from_mmc(unsigned device, unsigned *len)
 
 int load_from_usb(unsigned *_len, unsigned *_addr)
 {
-	u32 len, addr, n, msg;
+	u32 len, addr, msg;
 
 //	enable_irqs();
 
@@ -233,7 +236,10 @@ int load_from_usb(unsigned *_len, unsigned *_addr)
 
 void aboot(unsigned *info)
 {
-	unsigned bootdevice, n, len, addr = CONFIG_ADDR_DOWNLOAD;
+#if WITH_FLASH_BOOT
+	unsigned bootdevice;
+#endif
+    unsigned n, len, addr = CONFIG_ADDR_DOWNLOAD;
 
 	board_mux_init();
 	sdelay(100);

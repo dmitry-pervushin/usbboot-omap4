@@ -78,7 +78,7 @@ static void boot_image_android(unsigned machtype, unsigned image, unsigned len)
 	 * otherwise the ramdisk gets clobbered before it can be
 	 * uncompressed.
 	 */
-	memcpy((void*) CONFIG_ADDR_KERNEL, image + psize, kactual);
+	memcpy((void*) CONFIG_ADDR_KERNEL, (void *)image + psize, kactual);
 	entry = (void*) CONFIG_ADDR_KERNEL;
 
 	printf("kernel:   0x%x (%d bytes)\n",
@@ -104,13 +104,6 @@ static void __attribute__((noreturn)) boot_image_binary(unsigned machtype, unsig
 	entry = (void*)image;
 	entry(0, cfg_machine_type, CONFIG_ADDR_ATAGS);
 	for (;;);
-}
-
-static void boot_image_u(unsigned machtype, unsigned image, unsigned len)
-{
-	char *data = (char*)image;
-
-
 }
 
 void boot_image(unsigned machtype, unsigned image, unsigned len)

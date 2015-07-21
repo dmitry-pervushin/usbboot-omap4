@@ -27,9 +27,16 @@
 
 what_to_build:: all
 
+QUIET=
+
 -include local.mk
 
-TOOLCHAIN ?= arm-none-linux-gnueabi-
+TOOLCHAIN ?= arm-none-eabi-
+INSTALL ?= /usr/bin/install
+
+BINDIR ?= $(DESTDIR)/usr/bin
+DATADIR ?= $(DESTDIR)/usr/share/usbboot
+DOCDIR ?= $(DESTDIR)/usr/share/doc/usbboot
 
 BOARD ?= panda
 
@@ -38,15 +45,21 @@ TARGET_LD := $(TOOLCHAIN)ld
 TARGET_OBJCOPY := $(TOOLCHAIN)objcopy
 TARGET_OBJDUMP := $(TOOLCHAIN)objdump
 
-TARGET_CFLAGS := -g -Os  -Wall
-TARGET_CFLAGS +=  -march=armv7-a -fno-builtin -ffreestanding
+TARGET_CFLAGS := -g -Os  -Wall -Werror
+TARGET_CFLAGS +=  -march=armv7-a -mcpu=cortex-a9 -fno-builtin -ffreestanding
 TARGET_CFLAGS += -I. -Iinclude
 TARGET_CFLAGS += -include config_$(BOARD).h
 TARGET_CFLAGS += -Wa,-march=armv7-a+sec 
 
 TARGET_LIBGCC := $(shell $(TARGET_CC) $(TARGET_CFLAGS) -print-libgcc-file-name)
 
-HOST_CFLAGS := -g -O2 -Wall
+ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
+    HOST_CC = $(CC)
+else
+    HOST_CC = $(DEB_HOST_GNU_TYPE)-gcc
+endif
+
+HOST_CFLAGS := -g -O2 -Wall -Werror
 HOST_CFLAGS += -Itools
 
 OUT := out/$(BOARD)
@@ -54,6 +67,10 @@ OUT_HOST_OBJ := $(OUT)/host-obj
 OUT_TARGET_OBJ := $(OUT)/target-obj
 
 ALL :=
+
+BINARIES :=
+DATAFILES :=
+DOCS := README
 
 include build/rules.mk
 
@@ -65,6 +82,7 @@ M_OBJS += tools/usb-linux.o
 M_OBJS += 2ndstage.o
 M_LIBS := $(shell pkg-config --libs libusb-1.0)
 include build/host-executable.mk
+BINARIES += $(OUT)/usbboot
 
 M_NAME := mkheader
 M_OBJS := tools/mkheader.o
@@ -96,6 +114,7 @@ M_OBJS += boot.o
 M_OBJS += misc.o
 M_LIBS := $(TARGET_LIBGCC)
 include build/target-executable.mk
+DATAFILES += $(OUT)/aboot $(OUT)/aboot.bin $(OUT)/aboot.ift
 
 M_NAME := agent
 M_BASE := 0x82000000
@@ -114,13 +133,21 @@ ALL += $(OUT)/aboot.ift
 $(OUT_HOST_OBJ)/2ndstage.o: $(OUT)/aboot.bin $(OUT)/bin2c
 	@echo generate $@
 	$(QUIET)./$(OUT)/bin2c aboot < $(OUT)/aboot.bin > $(OUT)/2ndstage.c
-	gcc -c -o $@ $(OUT)/2ndstage.c
+	$(HOST_CC) -c -o $@ $(OUT)/2ndstage.c
 
 clean::
 	@echo clean
 	@rm -rf $(OUT)
 
 all:: $(ALL)
+
+install: $(BINARIES) $(DATAFILES) $(DOCS)
+	install -d $(BINDIR)
+	install -d $(DATADIR)
+	install -d $(DOCDIR)
+	install -o root -g root -m 755 $(BINARIES) $(BINDIR)
+	install -o root -g root -m 644 $(DATAFILES) $(DATADIR)
+	install -o root -g root -m 644 $(DOCS) $(DOCDIR)
 
 # we generate .d as a side-effect of compiling. override generic rule:
 %.d:
