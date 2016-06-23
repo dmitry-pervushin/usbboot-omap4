@@ -216,15 +216,15 @@ int load_from_usb(unsigned *_len, unsigned *_addr)
 		*_len = len;
 
 		for (;;) {
-			if (usb_read(&usb, (void*)addr, min(len, 1024))) {
+			if (usb_read(&usb, (void*)addr, min(len, CHUNK_SIZE))) {
 				printf("usb_read failed\n");
 				return -1;
 			}
-			if (len < 1024)
+			if (len < CHUNK_SIZE)
 				break;
 			//printf(".");
-			len -= 1024;
-			addr += 1024;
+			len -= CHUNK_SIZE;
+			addr += CHUNK_SIZE;
 		}
 		printf("\n");
 	}

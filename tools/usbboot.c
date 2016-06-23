@@ -92,8 +92,10 @@ int usb_boot(usb_handle usb, struct usb_load_chunk *chunks)
 	fprintf(stderr,"sending 2ndstage to target... %08x\n",msg_boot);
 	r = linux_usb_write(usb, &msg_boot, sizeof(msg_boot));
 	CHECK_ERROR(r);
+        usleep(1);
 	r = linux_usb_write(usb, &chunks[0].size, sizeof(chunks[0].size));
 	CHECK_ERROR(r);
+        usleep(1);
 	r = linux_usb_write(usb, chunks[0].data, chunks[0].size);
 	CHECK_ERROR(r);
 
@@ -128,13 +130,13 @@ int usb_boot(usb_handle usb, struct usb_load_chunk *chunks)
 
 		fprintf(stderr, "sending image ");
 		for (;;) {
-			r = linux_usb_write(usb, chunks[i].data, min(chunks[i].size, 1024));
+			r = linux_usb_write(usb, chunks[i].data, min(chunks[i].size, CHUNK_SIZE));
 			CHECK_ERROR(r);
-			if (chunks[i].size < 1024)
+			if (chunks[i].size < CHUNK_SIZE)
 				break;
-			chunks[i].data += 1024;
-			chunks[i].size -= 1024;
-			usleep(1000);
+			chunks[i].data += CHUNK_SIZE;
+			chunks[i].size -= CHUNK_SIZE;
+			usleep(1);
 		}
 		CHECK_ERROR(r);
 
