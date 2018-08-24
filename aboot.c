@@ -67,6 +67,7 @@ struct usb usb;
 
 unsigned cfg_machine_type = 2791;
 
+#if 0
 static void dump(unsigned char *address, unsigned len, char *text)
 {
 	unsigned i, j, l;
@@ -106,6 +107,8 @@ static void dump(unsigned char *address, unsigned len, char *text)
 		printf("\n");
 	}
 }
+#endif
+
 #if WITH_SIGNATURE_CHECK
 unsigned call_trusted(unsigned appid, unsigned procid, unsigned flag, void *args);
 
@@ -183,7 +186,7 @@ int load_from_mmc(unsigned device, unsigned *len)
 
 int load_from_usb(unsigned *_len, unsigned *_addr)
 {
-	u32 len, addr, n, msg;
+	u32 len, addr, msg;
 
 //	enable_irqs();
 
@@ -213,15 +216,15 @@ int load_from_usb(unsigned *_len, unsigned *_addr)
 		*_len = len;
 
 		for (;;) {
-			if (usb_read(&usb, (void*)addr, min(len, 1024))) {
+			if (usb_read(&usb, (void*)addr, min(len, CHUNK_SIZE))) {
 				printf("usb_read failed\n");
 				return -1;
 			}
-			if (len < 1024)
+			if (len < CHUNK_SIZE)
 				break;
-			printf(".");
-			len -= 1024;
-			addr += 1024;
+			//printf(".");
+			len -= CHUNK_SIZE;
+			addr += CHUNK_SIZE;
 		}
 		printf("\n");
 	}
@@ -233,7 +236,10 @@ int load_from_usb(unsigned *_len, unsigned *_addr)
 
 void aboot(unsigned *info)
 {
-	unsigned bootdevice, n, len, addr = CONFIG_ADDR_DOWNLOAD;
+#if WITH_FLASH_BOOT
+	unsigned bootdevice;
+#endif
+    unsigned n, len, addr = CONFIG_ADDR_DOWNLOAD;
 
 	board_mux_init();
 	sdelay(100);
